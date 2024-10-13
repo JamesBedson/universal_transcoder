@@ -1,0 +1,29 @@
+settings:
+  t_design_path: "des.3.56.9.txt"
+  directional_weights: 1
+  show_results: False
+  save_results: True
+
+input:
+  type: "ambisonics"
+  ambisonics_order: 3
+
+output:
+  type: "surround"
+  surround_layout: "layout_7_0_4"
+
+coefficients:
+  energy: 5 
+  radial_intensity: 2
+  transverse_intensity: 1
+  pressure: 0
+  radial_velocity: 0
+  transverse_velocity: 0
+  in_phase_quad: 10
+  symmetry_quad: 2
+  in_phase_lin: 0
+  symmetry_lin: 0
+  total_gains_lin: 0
+  total_gains_quad: 0
+
+

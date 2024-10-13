@@ -4,4 +4,6 @@
 *.txt
 *.json
 venv*
+.venv
+*.DS_Store
 *npy

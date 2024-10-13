@@ -167,6 +167,7 @@ class State:
         C_min_gains_quad = total_gains_quad
 
         # Calculate complete cost value
+
         cost_value = (
             self.ce * C_e
             + self.cir * C_ir
