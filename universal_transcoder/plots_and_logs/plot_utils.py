@@ -41,32 +41,57 @@ import cartopy.mpl.geoaxes as cgeo
 from matplotlib.ticker import FuncFormatter
 
 
-def setup_cartopy_axes(ax: plt.Axes) -> cgeo.GeoAxes:
+def setup_cartopy_axes(
+    ax: plt.Axes,
+    xstep: int = 60,
+    ystep: int = 45,
+    show_top: bool = False,
+    show_bottom: bool = True,
+    show_left: bool = True,
+    show_right: bool = False,
+) -> cgeo.GeoAxes:
     """
-    Configures gridlines and label formatting for Cartopy GeoAxes.
+    Configure gridlines and label formatting for Cartopy GeoAxes.
+
+    Args:
+        ax (plt.Axes): The axis to configure.
+        xstep (int): Spacing between meridians (longitude lines) in degrees.
+        ystep (int): Spacing between parallels (latitude lines) in degrees.
+        show_top (bool): Whether to show top longitude labels.
+        show_bottom (bool): Whether to show bottom longitude labels.
+        show_left (bool): Whether to show left latitude labels.
+        show_right (bool): Whether to show right latitude labels.
+
+    Returns:
+        cgeo.GeoAxes: The configured Cartopy GeoAxes instance.
     """
     ax = cast(cgeo.GeoAxes, ax)
 
     gl = ax.gridlines(
         draw_labels=True,
-        xlocs=np.arange(-180, 182, 60),
-        ylocs=np.arange(-90, 91, 45),
+        xlocs=np.arange(-180, 181, xstep),
+        ylocs=np.arange(-90, 91, ystep),
         linestyle="--",
         linewidth=0.5,
         color="black",
         alpha=0.5,
     )
 
+    # Degree formatting (+/-)
     gl.xformatter = FuncFormatter(lambda x, _: f"{int(x):+d}°")
     gl.yformatter = FuncFormatter(lambda y, _: f"{int(y):+d}°")
-    gl.top_labels = False
-    gl.bottom_labels = True
-    gl.left_labels = True
-    gl.right_labels = True
 
+    # Label sides
+    gl.top_labels = show_top
+    gl.bottom_labels = show_bottom
+    gl.left_labels = show_left
+    gl.right_labels = show_right
+
+    # Font and padding style
     gl.xlabel_style = {"size": 8, "rotation": 0}
     gl.ylabel_style = {"size": 8, "rotation": 0}
     gl.xpadding = 2
+
     return ax
 
 
