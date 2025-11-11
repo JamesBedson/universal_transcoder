@@ -32,7 +32,9 @@ from typing import Dict, Any
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
-from mpl_toolkits.basemap import Basemap
+
+import cartopy.crs as ccrs
+from universal_transcoder.plots_and_logs.plot_utils import setup_cartopy_axes
 
 from universal_transcoder.auxiliars.my_coordinates import MyCoordinates
 from universal_transcoder.auxiliars.typing import Array
@@ -170,67 +172,61 @@ def write_optimization_log(
     ax1.set_xlabel("Number of iterations")
     ax1.set_title("Cost Vs. Iterations - BFGS")
 
-    # Plot 2 - Cloud
-    ax3 = fig.add_subplot(223)
+    # Plot 2 - Cloud of Points
+    ax3 = fig.add_subplot(223, projection=ccrs.Robinson(central_longitude=0))
+    ax3 = setup_cartopy_axes(
+        ax3,
+        xstep=60,
+        ystep=45,
+        show_top=False,
+        show_bottom=True,
+        show_left=True,
+        show_right=False,
+    )
     points = current_state.cloud_points.sph_deg()
     x = points[:, 0]
     y = points[:, 1]
     z = points[:, 2]
-    m = Basemap(projection="robin", lon_0=0, resolution="c")
-    x_map, y_map = m(x, y)
-    m.drawcoastlines(linewidth=0.5, color="None")
-    # draw parallels and meridians.
-    m.drawparallels(
-        np.arange(-90.0, 120.0, 45.0),
-        labels=[True, True, False, False],
-        labelstyle="+/-",
-    )
-    m.drawmeridians(
-        np.arange(0.0, 360.0, 60.0),
-        labels=[False, False, False, True],
-        labelstyle="+/-",
-    )
-    ax3.scatter(
-        x_map,
-        y_map,
+    sc1 = ax3.scatter(
+        x,
+        y,
         s=50,
         c=z,
         cmap="coolwarm",
         alpha=0.8,
         edgecolors="none",
+        transform=ccrs.PlateCarree(),
     )
     ax3.set_title("Cloud of points")
 
+
     # Plot 3 - Output Layout
-    ax4 = fig.add_subplot(224)
+    ax4 = fig.add_subplot(224, projection=ccrs.Robinson(central_longitude=0))
+    ax4 = setup_cartopy_axes(
+        ax4,
+        xstep=60,
+        ystep=45,
+        show_top=False,
+        show_bottom=True,
+        show_left=True,
+        show_right=False,
+    )
     points = current_state.output_layout.sph_deg()
     x = points[:, 0]
     y = points[:, 1]
     z = points[:, 2]
-    m = Basemap(projection="robin", lon_0=0, resolution="c")
-    x_map, y_map = m(x, y)
-    m.drawcoastlines(linewidth=0.5, color="None")
-    # draw parallels and meridians.
-    m.drawparallels(
-        np.arange(-90.0, 120.0, 45.0),
-        labels=[True, True, False, False],
-        labelstyle="+/-",
-    )
-    m.drawmeridians(
-        np.arange(0.0, 360.0, 60.0),
-        labels=[False, False, False, True],
-        labelstyle="+/-",
-    )
-    ax4.scatter(
-        x_map,
-        y_map,
+    sc2 = ax4.scatter(
+        x,
+        y,
         s=50,
         c=z,
         cmap="coolwarm",
         alpha=0.8,
         edgecolors="none",
+        transform=ccrs.PlateCarree(),
     )
     ax4.set_title("Output layout")
+
 
     plt.subplots_adjust(hspace=1, wspace=0.5)
 
