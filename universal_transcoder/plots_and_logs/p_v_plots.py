@@ -1,6 +1,7 @@
 """
 Copyright (c) 2024 Dolby Laboratories, Amaia Sagasti
 Copyright (c) 2023 Dolby Laboratories
+Modified and extended by James Bedson, 2025
 
 Redistribution and use in source and binary forms, with or without modification, are permitted 
 provided that the following conditions are met:
@@ -24,12 +25,14 @@ NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVE
 POSSIBILITY OF SUCH DAMAGE.
 """
 
-import ssl
-from typing import Union
-
+from typing import Union, cast
 import matplotlib.pyplot as plt
 import numpy as np
+import cartopy.crs as ccrs
+import cartopy.mpl.geoaxes as cgeo
+from matplotlib.ticker import FuncFormatter
 
+from universal_transcoder.plots_and_logs.plot_utils import *
 from universal_transcoder.auxiliars.my_coordinates import MyCoordinates
 from universal_transcoder.auxiliars.typing import ArrayLike, Array
 from universal_transcoder.plots_and_logs.common_plots_functions import save_plot
@@ -42,7 +45,7 @@ def plot_pv_2D(
     cloud_points: MyCoordinates,
     save_results: bool,
     results_file_name: Union[bool, str] = False,
-):
+) -> None:
     """
     Function to plot the pressure and velocity when
     decoding from an input format to an output layout. 2D plots.
@@ -51,7 +54,7 @@ def plot_pv_2D(
         pressure (jax.numpy Array): contains the real pressure values for each virtual source (1xL)
         radial_v (jax.numpy array): contains the real adial velocity values for each virtual
                 source (1xL)
-        transverse_v (jax.numpy array): contains the real transversal velocity values for each virtual
+        transverse_v (jax.numpy array): contains the real transverse velocity values for each virtual
                 source (1xL)
         cloud(MyCoordinates): set of points sampling the sphere (L)
         save_results (bool): Flag to save plots
@@ -60,103 +63,77 @@ def plot_pv_2D(
 
     azimuth = cloud_points.sph_rad()[:, 0]
     elevation = cloud_points.sph_rad()[:, 1]
+    pressure, radial_v, transverse_v = map(np.asarray, (pressure, radial_v, transverse_v))
     mask_horizon = np.isclose(np.abs(elevation), np.min(np.abs(elevation))) & (
         elevation >= 0.0
     )
 
+    azimuth = azimuth[mask_horizon]
+    azimuth_polar = close_loop(azimuth)
+
+    pressure = pressure[mask_horizon]
+    pressure_polar = close_loop(pressure)
+
+    radial_v = radial_v[mask_horizon]
+    radial_v_polar = close_loop(radial_v)
+
+    transverse_v = transverse_v[mask_horizon]
+    transverse_v_polar = close_loop(transverse_v)
+
     # Calculations
     v = np.sqrt(radial_v**2 + transverse_v**2)
 
-    # Maxima
-    maxima = np.max(
-        np.array(
-            [
-                np.max(pressure),
-                np.max(radial_v),
-                np.max(transverse_v),
-            ]
-        )
-    )
-    if maxima < 1.0:
-        lim = 1.0
-    elif maxima == 1.0:
-        lim = 1.1
-    else:
-        lim = maxima + 0.1
+    # Plot Limits
+    lim = compute_plot_limit(pressure, radial_v, transverse_v)
 
-    # mask point at the horizon
-    azimuth = azimuth[mask_horizon]
-    pressure = pressure[mask_horizon]
-    radial_v = radial_v[mask_horizon]
-    transverse_v = transverse_v[mask_horizon]
-
-    # az_order = np.argsort(azimuth)
-    # azimuth = azimuth[az_order]
-    # elevation = elevation[az_order]
-
-    # Plot
-    # XY
+    # -- Plot --
     fig1 = plt.figure(figsize=(17, 9))
-    ax = fig1.add_subplot(121)
-    ax.plot(azimuth, pressure, label="Pressure")
-    ax.plot(azimuth, radial_v, label="Radial Velocity")
-    ax.plot(azimuth, transverse_v, label="Transverse Velocity")
 
-    ax.legend(bbox_to_anchor=(1.5, 1.1))
-    plt.title("Pressure and Velocity")
-    plt.ylim(-0.01, lim)
-
+    # XY
+    ax1 = fig1.add_subplot(121)
+    ax1.plot(azimuth, pressure, label="Pressure")
+    ax1.plot(azimuth, radial_v, label="Radial Velocity")
+    ax1.plot(azimuth, transverse_v, label="Transverse Velocity")
+    ax1.legend(bbox_to_anchor=(1.5, 1.1))
+    ax1.set_title("Pressure and Velocity (Linear)")
+    ax1.set_ylim(-0.01, lim)
+    
     # Polar
-    # Add last to close plot
-    azimuth_polar = np.hstack((azimuth, azimuth[0]))
-    pressure_polar = np.hstack((pressure, pressure[0]))
-    radial_v_polar = np.hstack((radial_v, radial_v[0]))
-    transverse_v_polar = np.hstack((transverse_v, transverse_v[0]))
+    ax2 = fig1.add_subplot(122, projection="polar")
+    ax2.set_theta_zero_location("N")
+    ax2.plot(azimuth_polar, pressure_polar, label="Pressure")
+    ax2.plot(azimuth_polar, radial_v_polar, label="Radial Velocity")
+    ax2.plot(azimuth_polar, transverse_v_polar, label="Transverse Velocity")
+    ax2.legend(bbox_to_anchor=(1.5, 1.1))
+    ax2.set_ylim(0, lim)
 
-    ax = fig1.add_subplot(122, projection="polar")
-    ax.set_theta_zero_location("N")
-    ax.plot(azimuth_polar, pressure_polar, label="Pressure")
-    ax.plot(azimuth_polar, radial_v_polar, label="Radial Velocity")
-    ax.plot(azimuth_polar, transverse_v_polar, label="Transverse Velocity")
-
-    # plt.show()
+    plt.tight_layout()
 
     # Save plots
-    if save_results and (type(results_file_name) == str):
-        file_name = "plot_pressure_velocity_2D.png"
-        save_plot(plt, results_file_name, file_name)
+    if save_results and isinstance(results_file_name, str):
+        save_plot(plt, results_file_name, "plot_pressure_velocity_2D.png")
 
-    # plot in dB scale
-    # Plot
+    # -- dB Scale --
+    fig = plt.figure(figsize=(17, 9))
+    pressure_db = 20 * np.log10(pressure)
+    pressure_polar_db = 20 * np.log10(pressure_polar)
+
     # XY
-    fig1 = plt.figure(figsize=(17, 9))
-    ax = fig1.add_subplot(121)
-    ax.plot(azimuth, 20 * np.log10(pressure), label="Pressure")
-    # ax.plot(azimuth, radial_v, label="Radial Velocity")
-    # ax.plot(azimuth, transverse_v, label="Transverse Velocity")
-
-    ax.legend(bbox_to_anchor=(1.5, 1.1))
-    plt.title("Pressure and Velocity")
-    plt.ylim(-24, +6)
+    ax3 = fig.add_subplot(121)
+    ax3.plot(azimuth, pressure_db, label="Pressure (dB)")
+    ax3.legend(bbox_to_anchor=(1.5, 1.1))
+    ax3.set_ylim(-24, +6)
+    ax3.set_title("Pressure (dB)")
 
     # Polar
-    # Add last to close plot
-    azimuth_polar = np.hstack((azimuth, azimuth[0]))
-    pressure_polar = np.hstack((pressure, pressure[0]))
-    radial_v_polar = np.hstack((radial_v, radial_v[0]))
-    transverse_v_polar = np.hstack((transverse_v, transverse_v[0]))
+    ax4 = fig.add_subplot(122, projection="polar")
+    ax4.set_theta_zero_location("N")
+    ax4.plot(azimuth_polar, pressure_polar_db, label="Pressure (dB)")
+    ax4.legend(bbox_to_anchor=(1.3, 1.1))
+    ax4.set_ylim(-24, +6)
 
-    ax = fig1.add_subplot(122, projection="polar")
-    ax.set_theta_zero_location("N")
-    ax.plot(azimuth_polar, 20 * np.log10(pressure_polar), label="Pressure")
-    # ax.plot(azimuth_polar, radial_v_polar, label="Radial Velocity")
-    # ax.plot(azimuth_polar, transverse_v_polar, label="Transverse Velocity")
-    plt.ylim(-24, +6)
-
-    # Save plots
-    if save_results and (type(results_file_name) == str):
-        file_name = "plot_pressure_velocity_2D_dB.png"
-        save_plot(plt, results_file_name, file_name)
+    if save_results and isinstance(results_file_name, str):
+        save_plot(plt, results_file_name, "plot_pressure_velocity_2D_dB.png")
 
 
 def plot_pv_3D(
@@ -166,7 +143,7 @@ def plot_pv_3D(
     cloud_points: MyCoordinates,
     save_results: bool,
     results_file_name: Union[bool, str] = False,
-):
+) -> None:
     """
     Function to plot the pressure and velocity when
     decoding from an input format to an output layout.
@@ -176,114 +153,34 @@ def plot_pv_3D(
         pressure (jax.numpy Array): contains the real pressure values for each virtual source (1xL)
         radial_v (jax.numpy array): contains the real adial velocity values for each virtual
                 source (1xL)
-        transverse_v (jax.numpy array): contains the real transversal velocity values for each virtual
+        transverse_v (jax.numpy array): contains the real transverse velocity values for each virtual
                 source (1xL)
         cloud(MyCoordinates): set of points sampling the sphere (L)
         save_results (bool): Flag to save plots
         results_file_name(str): Path where to save the plots
     """
-    from mpl_toolkits.basemap import Basemap
-
     # Preparation
     points = cloud_points.sph_deg()
-
-    # Calculations
-
-    # Prepare plot
-    ssl._create_default_https_context = ssl._create_unverified_context
+    pressure, radial_v, transverse_v = map(np.asarray, (pressure, radial_v, transverse_v))
     x = points[:, 0]
     y = points[:, 1]
+    data_crs = ccrs.PlateCarree()
+    proj = ccrs.Robinson(central_longitude=0)
+    fig = plt.figure(figsize=(17,9))
 
-    # Plot Pressure
-    fig = plt.figure(figsize=(17, 9))
-    ax = fig.add_subplot(311)
-    m = Basemap(projection="robin", lon_0=0, resolution="c")
-    x_map, y_map = m(x, y)
-    m.drawcoastlines(linewidth=0.5, color="None")
-    m.drawparallels(
-        np.arange(-90.0, 120.0, 45.0),
-        labels=[True, True, False, False],
-        labelstyle="+/-",
-    )
-    m.drawmeridians(
-        np.arange(0.0, 360.0, 60.0),
-        labels=[False, False, False, True],
-        labelstyle="+/-",
-    )
-    plt.scatter(
-        x_map,
-        y_map,
-        s=60 - 0.6 * (np.abs(y)),  # for every 5 angle
-        c=pressure,
-        cmap="coolwarm",
-        alpha=0.8,
-        edgecolors="none",
-    )  # s=6 - 0.05 * (np.abs(y)), for every angle
-    plt.colorbar(label="Pressure")
-    plt.title("Pressure")
-    plt.clim(0, 2)
+    # Pressure
+    ax1 = fig.add_subplot(311, projection=proj)
+    cartopy_scatter(x, y, data_crs, ax1, pressure, "Pressure", "Pressure", (0, 2))
+    
+    # Radial Velocity
+    ax2 = fig.add_subplot(312, projection=proj)
+    cartopy_scatter(x, y, data_crs, ax2, radial_v, "Radial Velocity", "Radial Velocity", (0, 1))
 
-    # Plot Radial Velocity
-    ax = fig.add_subplot(312)
-    m = Basemap(projection="robin", lon_0=0, resolution="c")
-    x_map, y_map = m(x, y)
-    m.drawcoastlines(linewidth=0.5, color="None")
-    m.drawparallels(
-        np.arange(-90.0, 120.0, 45.0),
-        labels=[True, True, False, False],
-        labelstyle="+/-",
-    )
-    m.drawmeridians(
-        np.arange(0.0, 360.0, 60.0),
-        labels=[False, False, False, True],
-        labelstyle="+/-",
-    )
-    plt.scatter(
-        x_map,
-        y_map,
-        s=60 - 0.6 * (np.abs(y)),  # for every 5 angle
-        c=radial_v,
-        cmap="coolwarm",
-        alpha=0.8,
-        edgecolors="none",
-    )  # s=6 - 0.05 * (np.abs(y)), for every angle
-    plt.colorbar(label="Radial Velocity")
-    plt.title("Radial Velocity")
-    plt.clim(0, 1)
+    # Transverse Velocity
+    ax3 = fig.add_subplot(313, projection=proj)
+    cartopy_scatter(x, y, data_crs, ax3, transverse_v, "Transverse Velocity", "Transverse Velocity", (0, 1))
+    
+    plt.tight_layout()
 
-    # Plot Transverse Velocity
-    ax = fig.add_subplot(313)
-    m = Basemap(projection="robin", lon_0=0, resolution="c")
-    x_map, y_map = m(x, y)
-    m.drawcoastlines(linewidth=0.5, color="None")
-    m.drawparallels(
-        np.arange(-90.0, 120.0, 45.0),
-        labels=[True, True, False, False],
-        labelstyle="+/-",
-    )
-    m.drawmeridians(
-        np.arange(0.0, 360.0, 60.0),
-        labels=[False, False, False, True],
-        labelstyle="+/-",
-    )
-    plt.scatter(
-        x_map,
-        y_map,
-        s=60 - 0.6 * (np.abs(y)),  # for every 5 angle
-        c=transverse_v,
-        cmap="coolwarm",
-        alpha=0.8,
-        edgecolors="none",
-    )  # s=6 - 0.05 * (np.abs(y)), for every angle
-    plt.colorbar(label="Transversal Velocity")
-    plt.title("Transverse Velocity")
-    plt.clim(0, 1)
-
-    # Show
-    # plt.show()
-    ssl._create_default_https_context = ssl._create_default_https_context
-
-    # Save plots
-    if save_results and (type(results_file_name) == str):
-        file_name = "plot_pressure_velocity_3D.png"
-        save_plot(plt, results_file_name, file_name)
+    if save_results and isinstance(results_file_name, str):
+        save_plot(plt, results_file_name, "plot_pressure_velocity_3D.png")
