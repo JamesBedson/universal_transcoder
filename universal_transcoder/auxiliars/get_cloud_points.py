@@ -31,11 +31,11 @@ from typing import Union, Iterable, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
-from mpl_toolkits.basemap import Basemap
+import cartopy.crs as ccrs
 
 from universal_transcoder.auxiliars.my_coordinates import MyCoordinates
 from universal_transcoder.auxiliars.typing import NpArray
-
+from universal_transcoder.plots_and_logs.plot_utils import setup_cartopy_axes
 
 def mix_clouds_of_points(
     list_of_cloud_points: Iterable[MyCoordinates],
@@ -165,30 +165,21 @@ def get_equi_t_design_points(
         z = points[:, 2]
 
         fig = plt.figure(figsize=(6, 3))
-        m = Basemap(projection="robin", lon_0=0, resolution="c")
-        x_map, y_map = m(x, y)
-        m.drawcoastlines(linewidth=0.5, color="None")
-        # draw parallels and meridians.
-        m.drawparallels(
-            np.arange(-90.0, 120.0, 45.0),
-            labels=[True, True, False, False],
-            labelstyle="+/-",
-        )
-        m.drawmeridians(
-            np.arange(0.0, 360.0, 30.0),
-            labels=[False, False, False, True],
-            labelstyle="+/-",
-        )
-        plt.scatter(
-            x_map,
-            y_map,
-            s=50,
-            c=z,
-            cmap="coolwarm",
-            alpha=0.8,
-            edgecolors="none",
-        )
-        plt.title("Cloud of points (2D)")
+        proj = ccrs.Robinson(central_longitude=0)
+
+        ax = fig.add_subplot(111, projection=proj)
+        ax = setup_cartopy_axes(ax, 
+                                xstep=30, ystep=45, 
+                                show_top=True,
+                                show_bottom=True,
+                                show_left=False,
+                                show_right=True)
+        ax.scatter(x, y, s=50, c=z, 
+                   cmap="coolwarm", 
+                   alpha=0.8, 
+                   edgecolors="none",
+                   transform=ccrs.PlateCarree())
+        ax.set_title("Cloud of points (2D)")
 
         # Plot 3D
         ax = cloud_points.show()
@@ -265,30 +256,20 @@ def get_all_sphere_points(space: int = 1, plot_show: bool = True) -> MyCoordinat
         y = points[:, 1]
         z = points[:, 2]
         fig = plt.figure(figsize=(6, 3))
-        m = Basemap(projection="robin", lon_0=0, resolution="c")
-        x_map, y_map = m(x, y)
-        m.drawcoastlines(linewidth=0.5, color="None")
-        # draw parallels and meridians.
-        m.drawparallels(
-            np.arange(-90.0, 120.0, 45.0),
-            labels=[True, True, False, False],
-            labelstyle="+/-",
-        )
-        m.drawmeridians(
-            np.arange(0.0, 360.0, 30.0),
-            labels=[False, False, False, True],
-            labelstyle="+/-",
-        )
-        plt.scatter(
-            x_map,
-            y_map,
-            s=50,
-            c=z,
-            cmap="coolwarm",
-            alpha=0.8,
-            edgecolors="none",
-        )
-        plt.title("Cloud of points (2D)")
+        proj = ccrs.Robinson(central_longitude=0)
+        ax = fig.add_subplot(111, projection=proj)
+        ax = setup_cartopy_axes(ax,
+                                xstep=30, ystep=45,
+                                show_top=True,
+                                show_bottom=True,
+                                show_left=False,
+                                show_right=True)
+        sc = ax.scatter(x, y, s=50, c=z,
+                        cmap="coolwarm",
+                        alpha=0.8,
+                        edgecolors="none",
+                        transform=ccrs.PlateCarree())
+        ax.set_title("Cloud of points (2D)")
 
         # Plot 3D
         ax = cloud_points.show()
