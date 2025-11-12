@@ -1,6 +1,6 @@
 """
-Copyright (c) 2025 Dolby Laboratories
-Copyright (c) 2024 Dolby Laboratories, Amaia Sagasti
+Copyright (c) 2025 Dolby Laboratories and contributors
+Copyright (c) 2024 Dolby Laboratories and contributors
 Copyright (c) 2023 Dolby Laboratories
 
 Redistribution and use in source and binary forms, with or without modification, are permitted 
