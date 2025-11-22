@@ -1,7 +1,7 @@
 .idea*
 *.pyc
 *.pdf
-*.txt
 *.json
 venv*
 *npy
+*.egg-info
