@@ -27,7 +27,7 @@ POSSIBILITY OF SUCH DAMAGE.
 import itertools
 import math
 import os
-from typing import Union, Iterable, Optional, Tuple
+from typing import Union, Iterable, Optional, Tuple, IO
 import io
 
 import matplotlib.pyplot as plt
@@ -128,7 +128,7 @@ def get_equi_circumference_points(
 
 
 def get_equi_t_design_points(
-    source: Union[str, os.PathLike, io.TextIOBase], 
+    source: Union[str, os.PathLike, io.TextIOBase, IO[str]], 
     plot_show: bool = True
 ) -> MyCoordinates:
     """Function to obtain the polar and cartesian spherical
@@ -136,7 +136,7 @@ def get_equi_t_design_points(
     txt from http://neilsloane.com/sphdesigns/
 
     Args:
-        file_name (str): file name and directory, if neccesary
+        source Union[str, os.PathLike, TextIO]: path to the t-design file or file-like object
         plot_show(bool): if True plot of points is shown
 
     Returns:
