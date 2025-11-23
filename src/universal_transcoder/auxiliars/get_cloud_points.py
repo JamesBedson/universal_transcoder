@@ -28,6 +28,7 @@ import itertools
 import math
 import os
 from typing import Union, Iterable, Optional, Tuple
+import io
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -127,7 +128,8 @@ def get_equi_circumference_points(
 
 
 def get_equi_t_design_points(
-    file_name: Union[str, os.PathLike], plot_show: bool = True
+    source: Union[str, os.PathLike, io.TextIOBase], 
+    plot_show: bool = True
 ) -> MyCoordinates:
     """Function to obtain the polar and cartesian spherical
     coordinates of equidistant points of a sphere out of a given
@@ -140,8 +142,14 @@ def get_equi_t_design_points(
     Returns:
         cloud_points (MyCoordinates): points position
     """
+    # Accept either a filesystem path or a file-like object
+    if hasattr(source, "read"):
+        # file-like object
+        content = np.loadtxt(source, dtype=float)
+    else:
+        # filesystem path
+        content = np.loadtxt(str(source), dtype=float)
 
-    content = np.loadtxt(file_name, dtype=float)
     layout_cart = np.zeros([int(content.shape[0] / 3), 3])
     aux = 0
     for i in range(0, content.shape[0], 3):
